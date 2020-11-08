@@ -37151,7 +37151,27 @@ class FakeFS {
     this.chmodSync(destination, mode);
   }
 
-  async changeFilePromise(p, content, {
+  async changeFilePromise(p, content, opts = {}) {
+    if (Buffer.isBuffer(content)) {
+      return this.changeFileBufferPromise(p, content);
+    } else {
+      return this.changeFileTextPromise(p, content, opts);
+    }
+  }
+
+  async changeFileBufferPromise(p, content) {
+    let current = Buffer.alloc(0);
+
+    try {
+      current = await this.readFilePromise(p);
+    } catch (error) {// ignore errors, no big deal
+    }
+
+    if (Buffer.compare(current, content) === 0) return;
+    await this.writeFilePromise(p, content);
+  }
+
+  async changeFileTextPromise(p, content, {
     automaticNewlines
   } = {}) {
     let current = ``;
@@ -37166,7 +37186,27 @@ class FakeFS {
     await this.writeFilePromise(p, normalizedContent);
   }
 
-  changeFileSync(p, content, {
+  changeFileSync(p, content, opts = {}) {
+    if (Buffer.isBuffer(content)) {
+      return this.changeFileBufferSync(p, content);
+    } else {
+      return this.changeFileTextSync(p, content, opts);
+    }
+  }
+
+  changeFileBufferSync(p, content) {
+    let current = Buffer.alloc(0);
+
+    try {
+      current = this.readFileSync(p);
+    } catch (error) {// ignore errors, no big deal
+    }
+
+    if (Buffer.compare(current, content) === 0) return;
+    this.writeFileSync(p, content);
+  }
+
+  changeFileTextSync(p, content, {
     automaticNewlines = false
   } = {}) {
     let current = ``;
@@ -41614,7 +41654,7 @@ function applyPatch(pnpapi, opts) {
 
   external_module_.Module._findPath = function (request, paths, isMain) {
     if (request === `pnpapi`) return false;
-    if (!enableNativeHooks) return originalFindPath.call(external_module_.Module, request, paths, isMain);
+    if (isMain || !enableNativeHooks) return originalFindPath.call(external_module_.Module, request, paths, isMain);
 
     for (const path of paths || []) {
       let resolution;
